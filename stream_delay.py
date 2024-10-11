@@ -6,6 +6,7 @@ from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from alpaca.data.enums import Adjustment
 from datetime import datetime, timedelta, timezone
 from Stream import Stream
+from IPython.display import display
 from config import API_KEY, SECRET_KEY
 
 class PoorStream(Stream):
@@ -39,12 +40,16 @@ class PoorStream(Stream):
         df = pd.DataFrame({self.symbol:(q.ask_price + q.bid_price)/2}, 
                           index = [recent_tick])
         self.tick_data = pd.concat([self.tick_data, df])
-        if self.streamed_15 and recent_tick - self.last_bar > self.bar_length:
+        if self.streamed_15 and recent_tick - self.last_bar.replace(tzinfo=None) > self.bar_length:
             self.resample_and_join()
+            display(self.raw_data)
 
         elif not self.streamed_15 and recent_tick - self.start \
             >= timedelta(minutes=self.DELAY_MINUTES):
+            self.streamed_15 = True
+            self.get_most_recent()
             print("its been {} minutes".format(self.DELAY_MINUTES))
+            display(self.raw_data)
 
     def resample_and_join(self):
         self.raw_data = pd.concat([self.raw_data, self.tick_data.resample(self.bar_length, 
@@ -73,10 +78,14 @@ class PoorStream(Stream):
             df = df.resample(self.bar_length, label = "right").last().dropna().iloc[:-1]
             self.raw_data = df.copy()
             self.last_bar = self.raw_data.index[-1]
-            if pd.to_datetime(datetime.now(timezone.utc).replace(tzinfo=None)).tz_localize("UTC") - self.last_bar + \
+            if pd.to_datetime(datetime.now(timezone.utc).replace(tzinfo=None)).tz_localize("UTC") - self.last_bar - \
                 pd.to_timedelta("{}m".format(self.DELAY_MINUTES)) < self.bar_length:
                 break
 
+    def run(self):
+        self.start = datetime.now(timezone.utc).replace(tzinfo=None)
+        super().run()
+
 if __name__ == "__main__":
-    ps = PoorStream(window=200, bar_length="1d", symbol="SPY")
-    ps.get_most_recent()
+    ps = PoorStream(window=200, bar_length="1m", symbol="SPY")
+    ps.run()

@@ -1,7 +1,6 @@
 import logging
 import threading
 import time
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from alpaca.data.live import CryptoDataStream, StockDataStream
 from alpaca.data.enums import DataFeed
@@ -17,10 +16,7 @@ class Stream():
 
     async def on_recv(self, q):
         print('quote', q)
-        if q.timestamp.replace(tzinfo=None) - self.start >= timedelta(seconds=20):
-            print("its been 20 seconds biatch")
-            await self.stop()
-            return
+
 
 
     def add_stream(self, exchange, ticker):
@@ -57,7 +53,6 @@ class Stream():
     
 
     def run(self):
-        self.start = datetime.now(timezone.utc).replace(tzinfo=None)
         self.crypto_conn.run()
         self.stock_conn.run()
 
@@ -70,7 +65,7 @@ if __name__ == '__main__':
                         level=logging.INFO)
     str = Stream()
     str.set_tickers({
-        'crypto': ['BTC/USD', 'ETH/USD']
+        'stock': ['SPY']
     })
     str.run()
     print("hhhhhhhhhhhhhhhhhhhhhh")
