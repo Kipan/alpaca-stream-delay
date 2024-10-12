@@ -42,7 +42,7 @@ class Stream():
 
     def consumer_thread(self, conn, ticker):
 
-        conn.subscribe_quotes(self.on_recv, ticker)
+        conn.subscribe_bars(self.on_recv, ticker)
         #conn.run()
 
     def set_tickers(self, dict: dict):
@@ -65,7 +65,7 @@ if __name__ == '__main__':
                         level=logging.INFO)
     str = Stream()
     str.set_tickers({
-        'stock': ['SPY']
+        'crypto': ['BTC/USD', 'ETH/USD', 'ETH/BTC']
     })
     str.run()
     print("hhhhhhhhhhhhhhhhhhhhhh")
