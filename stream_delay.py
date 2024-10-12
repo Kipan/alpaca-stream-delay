@@ -38,25 +38,27 @@ class PoorStream(Stream):
         
     async def on_recv(self, q):
         print('quote', q)
-        recent_tick = q.timestamp.replace(tzinfo=None)
+        recent_tick = q.timestamp#.replace(tzinfo=None)
         df = pd.DataFrame({self.symbol:q.close}, index = [recent_tick])
         #df = pd.DataFrame({self.symbol:q.close}, 
         #                  index = [recent_tick])
         self.tick_data = pd.concat([self.tick_data, df])
-        if self.streamed_15:
-            self.resample_and_join()
-            display(self.raw_data)
-
+        display(self.tick_data)
         if not self.streamed_15 and recent_tick - self.start \
             >= timedelta(minutes=self.DELAY_MINUTES):
             self.streamed_15 = True
             self.get_most_recent()
             print("its been {} minutes".format(self.DELAY_MINUTES))
             display(self.raw_data)
+        if self.streamed_15:
+            self.resample_and_join()
+            display(self.raw_data)
+
 
     def resample_and_join(self):
         self.raw_data = pd.concat([self.raw_data, self.tick_data])#.resample(self.bar_length, 
                                                                  #       label="right").last().ffill().iloc[:-1]])
+        self.raw_data = self.raw_data.resample('min').ffill()
         self.tick_data = pd.DataFrame()#self.tick_data.iloc[-1:]
         self.last_bar = self.raw_data.index[-1]
 
@@ -66,12 +68,13 @@ class PoorStream(Stream):
         #now = datetime.now(timezone.utc).replace(tzinfo=None)
         #now = now - timedelta(microseconds = now.microsecond) - timedelta(minutes=self.DELAY_MINUTES)
         past = self.start - self.create_timedelta(self.bar_length, self.window)
+        end = self.start - timedelta(minutes=1)
         if self.exchange == 'crypto':
             request_params = CryptoBarsRequest(
                 symbol_or_symbols = self.symbol,
                 timeframe = TimeFrame.Minute,
                 start = past,
-                end = self.start
+                end = end
             )
             df = self.crypto_client.get_crypto_bars(request_params=request_params).df
         elif self.exchange == 'stock':
@@ -79,7 +82,7 @@ class PoorStream(Stream):
                 symbol_or_symbols = self.symbol,
                 timeframe = TimeFrame.Minute,
                 start = past,
-                end = self.start,
+                end = end,
                 adjustment = "all"
             )
             df = self.stock_client.get_stock_bars(request_params=request_params).df
@@ -87,7 +90,7 @@ class PoorStream(Stream):
         df = df[["timestamp", "close"]]
         df = df.set_index("timestamp")
         df.rename(columns = {"close":self.symbol}, inplace = True)
-        df = df.resample(self.bar_length, label = "right").last().dropna().iloc[:-1]
+        #df = df.resample(self.bar_length, label = "right").last().dropna().iloc[:-1]
         self.raw_data = df.copy()
         self.last_bar = self.raw_data.index[-1]
             #if pd.to_datetime(datetime.now(timezone.utc).replace(tzinfo=None)).tz_localize("UTC") - self.last_bar - \
@@ -95,11 +98,11 @@ class PoorStream(Stream):
             #    break
 
     def run(self):
-        self.start = datetime.now(timezone.utc).replace(tzinfo=None)
+        self.start = datetime.now(timezone.utc)#.replace(tzinfo=None)
         super().run()
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                         level=logging.INFO)
-    ps = PoorStream(window=10, bar_length="1m", symbol="ETH/USD", exchange="crypto")
+    ps = PoorStream(window=100, bar_length="1m", symbol="ETH/USD", exchange="crypto")
     ps.run()
